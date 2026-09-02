@@ -35,27 +35,35 @@
       const n = parseFloat(mSuf[1].replace(",", "."));
       const suf = mSuf[2].toLowerCase();
       const mult =
-        suf === "k" || suf === "tsd"
-          ? 1e3
-          : suf === "m" || suf === "mio"
-          ? 1e6
-          : 1e9;
+          suf === "k" || suf === "tsd"
+              ? 1e3
+              : suf === "m" || suf === "mio"
+                  ? 1e6
+                  : 1e9;
       const v = Math.round(n * mult);
       return Number.isFinite(v) ? v : null;
     }
 
     // Largest integer with separators
-    const matches = [...s.matchAll(/\b(\d{1,3}(?:[ .,\u00A0]\d{3})+|\d{2,})\b/g)]
-      .map((m) => parseInt(m[1].replace(/[ .,\u00A0]/g, ""), 10))
-      .filter(Number.isFinite);
+    // We look for numbers like 1,000, 1.000, 1 000 or just 1000
+    // We try to find the one that looks most like a total count
+    const matches = [...s.matchAll(/\b(\d{1,3}(?:[ .,\u00A0]\d{3})+|\d{1,})\b/g)]
+        .map((m) => {
+          const val = parseInt(m[1].replace(/[ .,\u00A0]/g, ""), 10);
+          return { raw: m[1], val };
+        })
+        .filter((m) => Number.isFinite(m.val));
 
-    if (matches.length) return Math.max(...matches);
-
-    // Fallback: numbers immediately preceding 'review(s)' (captures single-digit counts)
-    const mReviewWord = s.match(
-      /\b(\d+)\b(?=\s*(?:user\s+)?reviews?\b)/i
-    );
-    if (mReviewWord) return parseInt(mReviewWord[1], 10);
+    if (matches.length) {
+      // If there's a match that is followed by "reviews" or similar, prioritize it
+      const reviewMatch = s.match(
+          /\b(\d{1,3}(?:[ .,\u00A0]\d{3})+|\d{1,})\b(?=\s*(?:user\s+)?reviews?\b)/i
+      );
+      if (reviewMatch) {
+        return parseInt(reviewMatch[1].replace(/[ .,\u00A0]/g, ""), 10);
+      }
+      return Math.max(...matches.map((m) => m.val));
+    }
 
     return null;
   }
